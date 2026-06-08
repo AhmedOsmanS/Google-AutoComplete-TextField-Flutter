@@ -10,6 +10,9 @@ import 'package:dio/dio.dart';
 import 'package:rxdart/rxdart.dart';
 
 import 'DioErrorHandler.dart';
+import 'google_places_api_headers.dart';
+
+export 'google_places_api_headers.dart';
 
 class GooglePlaceAutoCompleteTextField extends StatefulWidget {
   InputDecoration inputDecoration;
@@ -45,6 +48,15 @@ class GooglePlaceAutoCompleteTextField extends StatefulWidget {
   /// This is expressed in **meters**
   final int? radius;
 
+  /// Android signing cert SHA-1 (no colons) for [X-Android-Cert] header.
+  final String? androidCertSha1;
+
+  /// Override Android package name for [X-Android-Package] header.
+  final String? androidPackageName;
+
+  /// Override iOS bundle ID for [X-Ios-Bundle-Identifier] header.
+  final String? iosBundleIdentifier;
+
   GooglePlaceAutoCompleteTextField(
       {required this.textEditingController,
       required this.googleAPIKey,
@@ -72,7 +84,10 @@ class GooglePlaceAutoCompleteTextField extends StatefulWidget {
       this.formSubmitCallback,
       this.textInputAction,
       this.keyboardType,
-      this.clearData});
+      this.clearData,
+      this.androidCertSha1,
+      this.androidPackageName,
+      this.iosBundleIdentifier});
 
   @override
   _GooglePlaceAutoCompleteTextFieldState createState() =>
@@ -187,7 +202,19 @@ class _GooglePlaceAutoCompleteTextFieldState
       String proxyURL = "https://cors-anywhere.herokuapp.com/";
       String url = kIsWeb ? proxyURL + apiURL : apiURL;
 
-      Response response = await _dio.get(url);
+      final Map<String, String> headers = await GooglePlacesApiHeaders.build(
+        androidCertSha1: widget.androidCertSha1,
+        androidPackageName: widget.androidPackageName,
+        iosBundleIdentifier: widget.iosBundleIdentifier,
+      );
+
+      Response response = await _dio.get(
+        url,
+        options: Options(headers: headers),
+        cancelToken: _cancelToken,
+      );
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
       Map map = response.data;
@@ -200,7 +227,9 @@ class _GooglePlaceAutoCompleteTextFieldState
 
       if (text.length == 0) {
         alPredictions.clear();
-        this._overlayEntry!.remove();
+        if (_overlayEntry?.mounted ?? false) {
+          _overlayEntry!.remove();
+        }
         return;
       }
 
@@ -211,9 +240,13 @@ class _GooglePlaceAutoCompleteTextFieldState
         alPredictions.addAll(subscriptionResponse.predictions!);
       }
 
-      this._overlayEntry = null;
-      this._overlayEntry = this._createOverlayEntry();
-      Overlay.of(context).insert(this._overlayEntry!);
+      if (_overlayEntry?.mounted ?? false) {
+        _overlayEntry!.remove();
+      }
+      _overlayEntry = _createOverlayEntry();
+      if (_overlayEntry != null) {
+        Overlay.of(context).insert(_overlayEntry!);
+      }
     } catch (e) {
       var errorHandler = ErrorHandler.internal().handleError(e);
       _showSnackBar("${errorHandler.message}");
@@ -224,6 +257,7 @@ class _GooglePlaceAutoCompleteTextFieldState
   void initState() {
     super.initState();
     _dio = Dio();
+    GooglePlacesApiHeaders.ensureInitialized();
     subject.stream
         .distinct()
         .debounceTime(Duration(milliseconds: widget.debounceTime))
@@ -289,24 +323,30 @@ class _GooglePlaceAutoCompleteTextFieldState
                 ),
               ));
     }
+    return null;
   }
 
   removeOverlay() {
     alPredictions.clear();
-    this._overlayEntry = this._createOverlayEntry();
-
-    Overlay.of(context).insert(this._overlayEntry!);
-    this._overlayEntry!.markNeedsBuild();
+    if (_overlayEntry?.mounted ?? false) {
+      _overlayEntry!.remove();
+    }
+    _overlayEntry = null;
   }
 
   Future<void> getPlaceDetailsFromPlaceId(Prediction prediction) async {
-    //String key = GlobalConfiguration().getString('google_maps_key');
-
     var url =
         "https://maps.googleapis.com/maps/api/place/details/json?placeid=${prediction.placeId}&key=${widget.googleAPIKey}";
     try {
+      final Map<String, String> headers = await GooglePlacesApiHeaders.build(
+        androidCertSha1: widget.androidCertSha1,
+        androidPackageName: widget.androidPackageName,
+        iosBundleIdentifier: widget.iosBundleIdentifier,
+      );
+
       Response response = await _dio.get(
         url,
+        options: Options(headers: headers),
       );
 
       PlaceDetails placeDetails = PlaceDetails.fromJson(response.data);
