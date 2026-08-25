@@ -35,6 +35,8 @@ class Prediction {
   List<String>? types;
   String? lat;
   String? lng;
+  /// Populated from Place Details `address_components` (postal_code).
+  String? postalCode;
 
   Prediction(
       {this.description,
@@ -46,7 +48,8 @@ class Prediction {
       this.terms,
       this.types,
       this.lat,
-      this.lng});
+      this.lng,
+      this.postalCode});
 
   Prediction.fromJson(Map<String, dynamic> json) {
     description = json['description'];
@@ -71,6 +74,7 @@ class Prediction {
     types = json['types'].cast<String>();
     lat = json['lat'];
     lng = json['lng'];
+    postalCode = json['postal_code']?.toString() ?? json['postalCode']?.toString();
   }
 
   Map<String, dynamic> toJson() {
@@ -92,6 +96,7 @@ class Prediction {
     data['types'] = this.types;
     data['lat'] = this.lat;
     data['lng'] = this.lng;
+    data['postal_code'] = this.postalCode;
 
     return data;
   }

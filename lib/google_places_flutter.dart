@@ -248,6 +248,10 @@ class _GooglePlaceAutoCompleteTextFieldState
         Overlay.of(context).insert(_overlayEntry!);
       }
     } catch (e) {
+      debugPrint('Google Places autocomplete error: $e');
+      if (e is DioException) {
+        debugPrint('Google Places autocomplete response: ${e.response?.data}');
+      }
       var errorHandler = ErrorHandler.internal().handleError(e);
       _showSnackBar("${errorHandler.message}");
     }
@@ -353,9 +357,15 @@ class _GooglePlaceAutoCompleteTextFieldState
 
       prediction.lat = placeDetails.result!.geometry!.location!.lat.toString();
       prediction.lng = placeDetails.result!.geometry!.location!.lng.toString();
+      prediction.postalCode =
+          _postalCodeFromPlaceDetails(placeDetails.result?.addressComponents);
 
       widget.getPlaceDetailWithLatLng!(prediction);
     } catch (e) {
+      debugPrint('Google Places place-details error: $e');
+      if (e is DioException) {
+        debugPrint('Google Places place-details response: ${e.response?.data}');
+      }
       var errorHandler = ErrorHandler.internal().handleError(e);
       _showSnackBar("${errorHandler.message}");
     }
@@ -403,6 +413,19 @@ PlacesAutocompleteResponse parseResponse(Map responseBody) {
 
 PlaceDetails parsePlaceDetailMap(Map responseBody) {
   return PlaceDetails.fromJson(responseBody as Map<String, dynamic>);
+}
+
+String? _postalCodeFromPlaceDetails(List<AddressComponents>? components) {
+  if (components == null) return null;
+  for (final AddressComponents component in components) {
+    final List<String>? types = component.types;
+    if (types == null || !types.contains('postal_code')) continue;
+    final String? value = component.longName ?? component.shortName;
+    if (value != null && value.trim().isNotEmpty) {
+      return value.trim();
+    }
+  }
+  return null;
 }
 
 typedef ItemClick = void Function(Prediction postalCodeResponse);
