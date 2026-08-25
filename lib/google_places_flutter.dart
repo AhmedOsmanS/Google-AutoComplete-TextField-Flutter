@@ -215,6 +215,11 @@ class _GooglePlaceAutoCompleteTextFieldState
       );
       if (!mounted) return;
 
+      debugPrint(
+        'Google Places autocomplete response: status=${response.statusCode} '
+        'data=${response.data}',
+      );
+
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
       Map map = response.data;
@@ -353,12 +358,22 @@ class _GooglePlaceAutoCompleteTextFieldState
         options: Options(headers: headers),
       );
 
+      debugPrint(
+        'Google Places place-details response: placeId=${prediction.placeId} '
+        'status=${response.statusCode} data=${response.data}',
+      );
+
       PlaceDetails placeDetails = PlaceDetails.fromJson(response.data);
 
       prediction.lat = placeDetails.result!.geometry!.location!.lat.toString();
       prediction.lng = placeDetails.result!.geometry!.location!.lng.toString();
       prediction.postalCode =
           _postalCodeFromPlaceDetails(placeDetails.result?.addressComponents);
+
+      debugPrint(
+        'Google Places place-details parsed: lat=${prediction.lat} '
+        'lng=${prediction.lng} postalCode=${prediction.postalCode}',
+      );
 
       widget.getPlaceDetailWithLatLng!(prediction);
     } catch (e) {
